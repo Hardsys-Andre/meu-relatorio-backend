@@ -7,9 +7,6 @@ const mongoose = require("mongoose");
 const User = require("./user");
 const authenticateToken = require("./middleware");
 
-// Se você estiver usando o OpenRouter via API REST (exemplo)
-const axios = require('axios');
-
 // Configuração do servidor
 const app = express();
 app.use(cors());
@@ -25,18 +22,26 @@ mongoose.connect(process.env.MONGO_URI, {
 const generateReportWithOpenRouter = async (prompt) => {
   try {
     // Substitua pela URL da API do OpenRouter e adapte conforme necessário
-    const response = await axios.post('https://api.openrouter.ai/v1/generate', {
-      prompt: prompt,
-      model: 'gpt-3.5-turbo', // ou outro modelo disponível no OpenRouter
-      temperature: 0.7,
-      max_tokens: 2000,
-    }, {
+    const response = await fetch('https://api.openrouter.ai/v1/generate', {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`
-      }
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        model: 'gpt-3.5-turbo', // ou outro modelo disponível no OpenRouter
+        temperature: 0.7,
+        max_tokens: 2000,
+      })
     });
 
-    return response.data;
+    if (!response.ok) {
+      throw new Error("Erro ao gerar o relatório com o OpenRouter");
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error("Erro ao gerar relatório com o OpenRouter:", error);
     throw new Error("Erro ao gerar relatório com o OpenRouter.");
