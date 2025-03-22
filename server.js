@@ -4,9 +4,13 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const User = require("./user"); 
-const authenticateToken = require("./middleware"); // Importando o middleware de autenticação
+const User = require("./user");
+const authenticateToken = require("./middleware");
 
+// Se você estiver usando o OpenRouter via API REST (exemplo)
+const axios = require('axios');
+
+// Configuração do servidor
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -17,32 +21,59 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => console.log("Conectado ao MongoDB"))
   .catch(err => console.error("Erro ao conectar ao MongoDB:", err));
 
-  // 📝 Rota protegida /editor
+// Função para chamar o OpenRouter (exemplo de API REST)
+const generateReportWithOpenRouter = async (prompt) => {
+  try {
+    // Substitua pela URL da API do OpenRouter e adapte conforme necessário
+    const response = await axios.post('https://api.openrouter.ai/v1/generate', {
+      prompt: prompt,
+      model: 'gpt-3.5-turbo', // ou outro modelo disponível no OpenRouter
+      temperature: 0.7,
+      max_tokens: 2000,
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao gerar relatório com o OpenRouter:", error);
+    throw new Error("Erro ao gerar relatório com o OpenRouter.");
+  }
+};
+
+// Rota para gerar relatório
+app.post("/generate-report", async (req, res) => {
+  const { prompt } = req.body;
+  
+  if (!prompt) {
+    return res.status(400).json({ message: "O prompt é obrigatório." });
+  }
+
+  try {
+    // Usando OpenRouter para gerar o relatório
+    const reportData = await generateReportWithOpenRouter(prompt);
+    
+    // Retornando o conteúdo gerado
+    res.json({ report: reportData.generated_text });
+  } catch (error) {
+    console.error('Erro ao gerar o relatório:', error);
+    res.status(500).json({ message: "Erro ao gerar o relatório. Tente novamente mais tarde." });
+  }
+});
+
+// Rota protegida /editor
 app.get("/editor", authenticateToken, (req, res) => {
   res.json({ message: "Acesso ao Editor permitido", userId: req.user.userId });
 });
 
-// 📝 Rota protegida /csvUploader
+// Rota protegida /csvUploader
 app.get("/csvUploader", authenticateToken, (req, res) => {
   res.json({ message: "Acesso ao CSV Uploader permitido", userId: req.user.userId });
 });
 
-app.post("/verify-token", (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1]; // Pega o token do header
-
-  if (!token) {
-    return res.status(401).json({ message: "Token não fornecido." });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.status(200).json({ message: "Token válido.", userId: decoded.userId });
-  } catch (error) {
-    res.status(401).json({ message: "Token inválido ou expirado." });
-  }
-});
-
-// 📝 Rota para cadastrar usuário
+// Rota para cadastrar usuário
 app.post("/register", async (req, res) => {
   const { firstName, lastName, phone, cityState, email, password } = req.body;
 
@@ -102,7 +133,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-
 // Rota protegida, usando o middleware para autenticação
 app.get("/profile", authenticateToken, async (req, res) => {
   try {
@@ -152,7 +182,6 @@ app.put("/profile/edit", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Erro ao atualizar os dados do usuário." });
   }
 });
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));

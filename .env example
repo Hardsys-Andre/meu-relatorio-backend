@@ -1,3 +1,0 @@
-MONGO_URI=mongodb+srv://hardsys_andre:senhaaqui@cluster0.sx05q.mongodb.net/MeusRelatorios-DB?retryWrites=true&w=majority&appName=Cluster0
-
-JWT_SECRET=5784ab790ab79cf608753eafa8d510c7dd16c4d1
