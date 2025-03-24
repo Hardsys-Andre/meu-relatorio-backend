@@ -17,13 +17,13 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => console.log("Conectado ao MongoDB"))
   .catch(err => console.error("Erro ao conectar ao MongoDB:", err));
 
-const generateReportWithOpenRouter = async (prompt) => {
+const generateReportWithDeepSeek = async (prompt) => {
   try {
     // Adiciona uma instrução fixa ao prompt para garantir que a resposta seja formatada em HTML
     const formattedPrompt = `
       Crie um conteúdo bem estruturado com títulos, subtítulos e parágrafos. Todos os elementos precisam ser formatados em HTML.
       O conteúdo gerado deve ser claro, com destaque para termos importantes, utilizando tags HTML como <h1>, <h2>, <p>, <strong>, <em>, etc.
-      Em caso de gerar algum texto com alguma cor, use sempre este formato <span style="color: cor desejada"> mas com a cor que for defina abaixo
+      Em caso de gerar algum texto com alguma cor, use sempre este formato <span style="color: cor desejada"> mas com a cor que for definida abaixo.
       Aqui está o prompt do usuário:
       ${prompt}
     `;
@@ -37,7 +37,7 @@ const generateReportWithOpenRouter = async (prompt) => {
         'X-Title': process.env.SITE_NAME || ''
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o',
+        model: 'deepseek/deepseek-chat-v3-0324:free',  // Modelo DeepSeek V3 0324
         messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
         temperature: 0.7,
         max_tokens: 2000
@@ -45,7 +45,7 @@ const generateReportWithOpenRouter = async (prompt) => {
     });
 
     if (!response.ok) {
-      throw new Error("Erro ao gerar o relatório com o OpenRouter");
+      throw new Error("Erro ao gerar o relatório com o DeepSeek");
     }
 
     const data = await response.json();
@@ -53,13 +53,14 @@ const generateReportWithOpenRouter = async (prompt) => {
       const generatedText = data.choices[0].message.content;
       return generatedText;
     } else {
-      throw new Error("Formato de resposta inesperado da API do OpenRouter.");
+      throw new Error("Formato de resposta inesperado da API do DeepSeek.");
     }
   } catch (error) {
-    console.error("Erro ao gerar relatório com o OpenRouter:", error);
-    throw new Error("Erro ao gerar relatório com o OpenRouter.");
+    console.error("Erro ao gerar relatório com o DeepSeek:", error);
+    throw new Error("Erro ao gerar relatório com o DeepSeek.");
   }
 };
+
 
 // Rota para gerar relatório
 app.post("/generate-report", async (req, res) => {
@@ -70,7 +71,7 @@ app.post("/generate-report", async (req, res) => {
   }
 
   try {
-    const reportData = await generateReportWithOpenRouter(prompt); // Chama a função ajustada
+    const reportData = await generateReportWithDeepSeek(prompt); // Chama a função ajustada
     res.json({ report: reportData });
   } catch (error) {
     console.error('Erro ao gerar o relatório:', error);
