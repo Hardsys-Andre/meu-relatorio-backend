@@ -5,11 +5,21 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("./user");
+const cookieParser = require("cookie-parser");
 const authenticateToken = require("./middleware"); // Importando o middleware de autenticação
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+
+
+// ⚠️ Permite requisições do front e envio de cookies
+app.use(
+  cors({
+    origin: "http://localhost:3000", // Altere para a URL do seu front-end
+    credentials: true, // Permite envio de cookies
+  })
+);
 
 mongoose.connect(process.env.MONGO_URI, { 
   useNewUrlParser: true, 
@@ -91,19 +101,28 @@ app.get("/csvUploader", authenticateToken, (req, res) => {
 
 // Rota para verificar token
 app.post("/verify-token", (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
+  const token = req.cookies.token;
 
   if (!token) {
-    return res.status(401).json({ message: "Token não fornecido." });
+    return res.status(401).json({ message: "Token não encontrado." });
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.status(200).json({ message: "Token válido.", userId: decoded.userId });
-  } catch (error) {
-    res.status(401).json({ message: "Token inválido ou expirado." });
-  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Token inválido ou expirado." });
+    }
+
+    // Se o token for válido, retorne uma mensagem de sucesso
+    res.status(200).json({ message: "Token válido." });
+  });
 });
+
+app.post("/logout", (req, res) => {
+  res.clearCookie("token", { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Strict' });
+  res.status(200).json({ message: "Logout bem-sucedido" });
+});
+
+
 
 // 📝 Rota para cadastrar usuário
 app.post("/register", async (req, res) => {
@@ -156,14 +175,24 @@ app.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    console.log("Token gerado:", token);
 
-    // Retornar token e userType no login
-    res.status(200).json({ token, userType: user.userType }); // Incluindo o userType na resposta
+    // Definir o cookie httpOnly
+    res.cookie("token", token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 3600 * 1000, // 1 hora
+    });
+
+    // Responder com sucesso, sem enviar o token diretamente
+    res.status(200).json({ token, message: "Login bem-sucedido" });
   } catch (error) {
     console.error("Erro ao fazer login:", error);
     res.status(500).json({ message: "Erro ao fazer login." });
   }
 });
+
 
 
 // Rota protegida, usando o middleware para autenticação
@@ -172,21 +201,29 @@ app.get("/profile", authenticateToken, async (req, res) => {
     // Aqui, o usuário já foi carregado e armazenado em `req.user` pelo middleware
     const user = req.user;
 
-    // Retorna os dados do usuário
-    res.json({
+    // Verifica se o usuário existe antes de tentar acessar seus dados
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+
+    // Retorna os dados do usuário com verificação para campos opcionais
+    const userProfile = {
       message: "Acesso permitido",
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone, // Caso tenha esse campo
-      cityState: user.cityState, // Caso tenha esse campo
-      userType: user.userType,
-    });
+      firstName: user.firstName || "Não informado",
+      lastName: user.lastName || "Não informado",
+      email: user.email || "Não informado",
+      phone: user.phone || "Não informado", // Caso tenha esse campo
+      cityState: user.cityState || "Não informado", // Caso tenha esse campo
+      userType: user.userType || "Não informado",
+    };
+
+    res.json(userProfile);
   } catch (err) {
     console.error("Erro ao obter os dados do usuário:", err);
-    return res.status(500).json({ message: "Erro ao obter dados do usuário" });
+    return res.status(500).json({ message: "Erro ao obter dados do usuário", error: err.message });
   }
 });
+
 
 // Rota protegida para editar dados do usuário
 app.put("/profile/edit", authenticateToken, async (req, res) => {

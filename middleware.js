@@ -1,33 +1,40 @@
 const jwt = require("jsonwebtoken");
-const User = require("./user"); 
+const User = require("./user");
 
 const authMiddleware = async (req, res, next) => {
+  // Verifica se o token foi fornecido no cabeçalho Authorization
   const token = req.headers["authorization"];
-
-  // Verifica se o token foi fornecido
+  
+  // Se não houver token, retorna erro 403
   if (!token) {
     return res.status(403).json({ message: "Token não fornecido" });
   }
 
-  // Remove o prefixo "Bearer " caso esteja presente
-  const tokenWithoutBearer = token.replace("Bearer ", "");
+  // Verifica se o token contém o prefixo "Bearer " e o remove
+  if (!token.startsWith("Bearer ")) {
+    return res.status(400).json({ message: "Token mal formatado" });
+  }
+  const tokenWithoutBearer = token.slice(7); // Remove 'Bearer ' de forma mais segura
 
   try {
-    // Decodifica o token
+    // Decodifica o token e valida
     const decoded = jwt.verify(tokenWithoutBearer, process.env.JWT_SECRET);
 
-    // Adiciona os dados do usuário no objeto `req` para usar nas rotas
+    // Tenta encontrar o usuário correspondente ao ID decodificado
     const user = await User.findById(decoded.userId);
     if (!user) {
       return res.status(404).json({ message: "Usuário não encontrado" });
     }
 
-    // Armazenando dados do usuário na requisição para ser acessado nas rotas
+    // Adiciona o usuário à requisição
     req.user = user;
-    next(); // Passa para a próxima função ou rota
+    
+    // Passa para o próximo middleware ou rota
+    next();
   } catch (err) {
-    // Se houver erro ao verificar o token
-    return res.status(401).json({ message: "Token inválido" });
+    // Se o token for inválido ou outro erro ocorrer
+    console.error("Erro ao verificar token:", err);
+    return res.status(401).json({ message: "Token inválido ou expirado" });
   }
 };
 
