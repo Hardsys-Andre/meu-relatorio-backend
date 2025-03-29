@@ -4,7 +4,7 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const User = require("./user"); 
+const User = require("./user");
 const authenticateToken = require("./middleware"); // Importando o middleware de autenticação
 
 const app = express();
@@ -17,7 +17,69 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => console.log("Conectado ao MongoDB"))
   .catch(err => console.error("Erro ao conectar ao MongoDB:", err));
 
-  // 📝 Rota protegida /editor
+const generateReportWithDeepSeek = async (prompt) => {
+  try {
+    // Adiciona uma instrução fixa ao prompt para garantir que a resposta seja formatada em HTML
+    const formattedPrompt = `
+      Crie um conteúdo bem estruturado com títulos, subtítulos e parágrafos. Todos os elementos precisam ser formatados em HTML.
+      O conteúdo gerado deve ser claro, com destaque para termos importantes, utilizando tags HTML como <h1>, <h2>, <p>, <strong>, <em>, etc.
+      Em caso de gerar algum texto com alguma cor, use sempre este formato <span style="color: cor desejada"> mas com a cor que for definida abaixo.
+      Aqui está o prompt do usuário:
+      ${prompt}
+    `;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.SITE_URL || '',
+        'X-Title': process.env.SITE_NAME || ''
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-chat-v3-0324:free',  // Modelo DeepSeek V3 0324
+        messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Erro ao gerar o relatório com o DeepSeek");
+    }
+
+    const data = await response.json();
+    if (data.choices && data.choices.length > 0) {
+      const generatedText = data.choices[0].message.content;
+      return generatedText;
+    } else {
+      throw new Error("Formato de resposta inesperado da API do DeepSeek.");
+    }
+  } catch (error) {
+    console.error("Erro ao gerar relatório com o DeepSeek:", error);
+    throw new Error("Erro ao gerar relatório com o DeepSeek.");
+  }
+};
+
+
+// Rota para gerar relatório
+app.post("/generate-report", async (req, res) => {
+  const { prompt } = req.body;
+  
+  if (!prompt) {
+    return res.status(400).json({ message: "O prompt é obrigatório." });
+  }
+
+  try {
+    const reportData = await generateReportWithDeepSeek(prompt); // Chama a função ajustada
+    res.json({ report: reportData });
+  } catch (error) {
+    console.error('Erro ao gerar o relatório:', error);
+    res.status(500).json({ message: "Erro ao gerar o relatório. Tente novamente mais tarde." });
+  }
+});
+
+// 📝 Rota protegida /editor
 app.get("/editor", authenticateToken, (req, res) => {
   res.json({ message: "Acesso ao Editor permitido", userId: req.user.userId });
 });
@@ -27,8 +89,9 @@ app.get("/csvUploader", authenticateToken, (req, res) => {
   res.json({ message: "Acesso ao CSV Uploader permitido", userId: req.user.userId });
 });
 
+// Rota para verificar token
 app.post("/verify-token", (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1]; // Pega o token do header
+  const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({ message: "Token não fornecido." });
@@ -152,7 +215,6 @@ app.put("/profile/edit", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Erro ao atualizar os dados do usuário." });
   }
 });
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
