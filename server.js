@@ -91,7 +91,31 @@ app.post("/generate-report", async (req, res) => {
 
 // 📝 Rota protegida /editor
 app.get("/editor", authenticateToken, (req, res) => {
-  res.json({ message: "Acesso ao Editor permitido", userId: req.user.userId });
+  try {
+    // Aqui, o usuário já foi carregado e armazenado em `req.user` pelo middleware
+    const user = req.user;
+
+    // Verifica se o usuário existe antes de tentar acessar seus dados
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+
+    // Retorna os dados do usuário com verificação para campos opcionais
+    const userProfile = {
+      message: "Acesso permitido",
+      firstName: user.firstName || "Não informado",
+      lastName: user.lastName || "Não informado",
+      email: user.email || "Não informado",
+      phone: user.phone || "Não informado", // Caso tenha esse campo
+      cityState: user.cityState || "Não informado", // Caso tenha esse campo
+      userType: user.userType || "Não informado",
+    };
+
+    res.json(userProfile);
+  } catch (err) {
+    console.error("Erro ao obter os dados do usuário:", err);
+    return res.status(500).json({ message: "Erro ao obter dados do usuário", error: err.message });
+  }
 });
 
 // 📝 Rota protegida /csvUploader
@@ -100,22 +124,34 @@ app.get("/csvUploader", authenticateToken, (req, res) => {
 });
 
 // Rota para verificar token
-app.post("/verify-token", (req, res) => {
-  const token = req.cookies.token;
+app.post("/verify-token", async (req, res) => {
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({ message: "Token não encontrado." });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
     if (err) {
       return res.status(401).json({ message: "Token inválido ou expirado." });
     }
 
-    // Se o token for válido, retorne uma mensagem de sucesso
-    res.status(200).json({ message: "Token válido." });
+    try {
+      const user = await User.findById(decoded.userId).select("-password"); // Exclui a senha dos dados retornados
+      console.log(user)
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado." });
+      }
+
+      res.status(200).json({ user });
+    } catch (error) {
+      console.error("Erro ao buscar usuário:", error);
+      res.status(500).json({ message: "Erro interno ao buscar usuário." });
+    }
   });
 });
+
 
 app.post("/logout", (req, res) => {
   res.clearCookie("token", { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Strict' });
@@ -174,7 +210,7 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Senha incorreta." });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ userId: user._id, userType: user.userType }, process.env.JWT_SECRET, { expiresIn: "1h" });
     console.log("Token gerado:", token);
 
     // Definir o cookie httpOnly
@@ -182,7 +218,8 @@ app.post("/login", async (req, res) => {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
-      maxAge: 3600 * 1000, // 1 hora
+      maxAge: 5 * 60 * 1000, // 5 minutos ou :3600 * 1000, 1 hora
+       
     });
 
     // Responder com sucesso, sem enviar o token diretamente
