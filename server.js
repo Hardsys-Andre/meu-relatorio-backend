@@ -138,13 +138,22 @@ app.post("/verify-token", async (req, res) => {
 
     try {
       const user = await User.findById(decoded.userId).select("-password"); // Exclui a senha dos dados retornados
-      console.log(user)
 
       if (!user) {
         return res.status(404).json({ message: "Usuário não encontrado." });
       }
 
-      res.status(200).json({ user });
+      const userProfile = {
+        message: "Acesso permitido",
+        firstName: user.firstName || "Não informado",
+        lastName: user.lastName || "Não informado",
+        email: user.email || "Não informado",
+        phone: user.phone || "Não informado", // Caso tenha esse campo
+        cityState: user.cityState || "Não informado", // Caso tenha esse campo
+        userType: user.userType || "Não informado",
+      };
+
+      res.status(200).json({ userProfile });
     } catch (error) {
       console.error("Erro ao buscar usuário:", error);
       res.status(500).json({ message: "Erro interno ao buscar usuário." });
