@@ -47,7 +47,7 @@ const generateReportWithDeepSeek = async (prompt) => {
         'X-Title': process.env.SITE_NAME || ''
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat-v3-0324:free',  // Modelo DeepSeek V3 0324
+        model: 'nvidia/llama-3.1-nemotron-70b-instruct:free',  // Modelo DeepSeek V3 0324
         messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
         temperature: 0.7,
         max_tokens: 2000
@@ -224,7 +224,7 @@ app.post("/login", async (req, res) => {
 
     // Definir o cookie httpOnly
     res.cookie("token", token, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
       maxAge: 5 * 60 * 1000, // 5 minutos ou :3600 * 1000, 1 hora
