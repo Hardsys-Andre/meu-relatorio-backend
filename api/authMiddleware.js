@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("./user");
+const User = require("./user.js");
 
 const authMiddleware = async (req, res, next) => {
   // Verifica se o token foi fornecido no cabeçalho Authorization

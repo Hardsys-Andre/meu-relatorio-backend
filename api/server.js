@@ -1,12 +1,12 @@
-require("dotenv").config();
+require("dotenv").config({ path: "../.env" });
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const User = require("./user");
+const User = require("./user.js");
 const cookieParser = require("cookie-parser");
-const authenticateToken = require("./middleware"); // Importando o middleware de autenticação
+const authenticateToken = require("./authMiddleware.js"); // Importando o middleware de autenticação
 
 const app = express();
 app.use(express.json());
