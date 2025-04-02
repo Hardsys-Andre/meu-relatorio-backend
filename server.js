@@ -5,11 +5,21 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("./user");
+const cookieParser = require("cookie-parser");
 const authenticateToken = require("./middleware"); // Importando o middleware de autenticação
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+
+
+// ⚠️ Permite requisições do front e envio de cookies
+app.use(
+  cors({
+    origin: "http://localhost:3000", // Altere para a URL do seu front-end
+    credentials: true, // Permite envio de cookies
+  })
+);
 
 mongoose.connect(process.env.MONGO_URI, { 
   useNewUrlParser: true, 
@@ -37,7 +47,7 @@ const generateReportWithDeepSeek = async (prompt) => {
         'X-Title': process.env.SITE_NAME || ''
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat-v3-0324:free',  // Modelo DeepSeek V3 0324
+        model: 'nvidia/llama-3.1-nemotron-70b-instruct:free',  // Modelo DeepSeek V3 0324
         messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
         temperature: 0.7,
         max_tokens: 2000
@@ -81,7 +91,31 @@ app.post("/generate-report", async (req, res) => {
 
 // 📝 Rota protegida /editor
 app.get("/editor", authenticateToken, (req, res) => {
-  res.json({ message: "Acesso ao Editor permitido", userId: req.user.userId });
+  try {
+    // Aqui, o usuário já foi carregado e armazenado em `req.user` pelo middleware
+    const user = req.user;
+
+    // Verifica se o usuário existe antes de tentar acessar seus dados
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+
+    // Retorna os dados do usuário com verificação para campos opcionais
+    const userProfile = {
+      message: "Acesso permitido",
+      firstName: user.firstName || "Não informado",
+      lastName: user.lastName || "Não informado",
+      email: user.email || "Não informado",
+      phone: user.phone || "Não informado", // Caso tenha esse campo
+      cityState: user.cityState || "Não informado", // Caso tenha esse campo
+      userType: user.userType || "Não informado",
+    };
+
+    res.json(userProfile);
+  } catch (err) {
+    console.error("Erro ao obter os dados do usuário:", err);
+    return res.status(500).json({ message: "Erro ao obter dados do usuário", error: err.message });
+  }
 });
 
 // 📝 Rota protegida /csvUploader
@@ -90,20 +124,50 @@ app.get("/csvUploader", authenticateToken, (req, res) => {
 });
 
 // Rota para verificar token
-app.post("/verify-token", (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
+app.post("/verify-token", async (req, res) => {
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ message: "Token não fornecido." });
+    return res.status(401).json({ message: "Token não encontrado." });
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.status(200).json({ message: "Token válido.", userId: decoded.userId });
-  } catch (error) {
-    res.status(401).json({ message: "Token inválido ou expirado." });
-  }
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Token inválido ou expirado." });
+    }
+
+    try {
+      const user = await User.findById(decoded.userId).select("-password"); // Exclui a senha dos dados retornados
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado." });
+      }
+
+      const userProfile = {
+        message: "Acesso permitido",
+        firstName: user.firstName || "Não informado",
+        lastName: user.lastName || "Não informado",
+        email: user.email || "Não informado",
+        phone: user.phone || "Não informado", // Caso tenha esse campo
+        cityState: user.cityState || "Não informado", // Caso tenha esse campo
+        userType: user.userType || "Não informado",
+      };
+
+      res.status(200).json({ userProfile });
+    } catch (error) {
+      console.error("Erro ao buscar usuário:", error);
+      res.status(500).json({ message: "Erro interno ao buscar usuário." });
+    }
+  });
 });
+
+
+app.post("/logout", (req, res) => {
+  res.clearCookie("token", { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Strict' });
+  res.status(200).json({ message: "Logout bem-sucedido" });
+});
+
+
 
 // 📝 Rota para cadastrar usuário
 app.post("/register", async (req, res) => {
@@ -155,15 +219,26 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Senha incorreta." });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ userId: user._id, userType: user.userType }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    console.log("Token gerado:", token);
 
-    // Retornar token e userType no login
-    res.status(200).json({ token, userType: user.userType }); // Incluindo o userType na resposta
+    // Definir o cookie httpOnly
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 5 * 60 * 1000, // 5 minutos ou :3600 * 1000, 1 hora
+       
+    });
+
+    // Responder com sucesso, sem enviar o token diretamente
+    res.status(200).json({ token, message: "Login bem-sucedido" });
   } catch (error) {
     console.error("Erro ao fazer login:", error);
     res.status(500).json({ message: "Erro ao fazer login." });
   }
 });
+
 
 
 // Rota protegida, usando o middleware para autenticação
@@ -172,21 +247,29 @@ app.get("/profile", authenticateToken, async (req, res) => {
     // Aqui, o usuário já foi carregado e armazenado em `req.user` pelo middleware
     const user = req.user;
 
-    // Retorna os dados do usuário
-    res.json({
+    // Verifica se o usuário existe antes de tentar acessar seus dados
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+
+    // Retorna os dados do usuário com verificação para campos opcionais
+    const userProfile = {
       message: "Acesso permitido",
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone, // Caso tenha esse campo
-      cityState: user.cityState, // Caso tenha esse campo
-      userType: user.userType,
-    });
+      firstName: user.firstName || "Não informado",
+      lastName: user.lastName || "Não informado",
+      email: user.email || "Não informado",
+      phone: user.phone || "Não informado", // Caso tenha esse campo
+      cityState: user.cityState || "Não informado", // Caso tenha esse campo
+      userType: user.userType || "Não informado",
+    };
+
+    res.json(userProfile);
   } catch (err) {
     console.error("Erro ao obter os dados do usuário:", err);
-    return res.status(500).json({ message: "Erro ao obter dados do usuário" });
+    return res.status(500).json({ message: "Erro ao obter dados do usuário", error: err.message });
   }
 });
+
 
 // Rota protegida para editar dados do usuário
 app.put("/profile/edit", authenticateToken, async (req, res) => {
