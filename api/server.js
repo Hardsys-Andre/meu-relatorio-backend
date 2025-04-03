@@ -166,9 +166,10 @@ app.post("/verify-token", async (req, res) => {
 app.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "None",
-    domain: "https://meu-relatorio-backend.vercel.app", // Ajuste conforme necessário
+    domain: "meu-relatorio-backend.vercel.app", // Mesmo domínio onde foi criado
+    path: "/",
   });
 
   res.status(200).json({ message: "Logout realizado com sucesso!" });
