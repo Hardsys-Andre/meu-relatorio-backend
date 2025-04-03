@@ -1,4 +1,3 @@
-require("dotenv").config({ path: "../.env" });
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
@@ -6,26 +5,26 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("./user.js");
 const cookieParser = require("cookie-parser");
-const authenticateToken = require("./authMiddleware.js"); // Importando o middleware de autenticação
+const authenticateToken = require("./authMiddleware.js");
 
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-
-// ⚠️ Permite requisições do front e envio de cookies
 app.use(
   cors({
-    origin: "http://localhost:3000", // Altere para a URL do seu front-end
-    credentials: true, // Permite envio de cookies
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,
   })
 );
 
-mongoose.connect(process.env.MONGO_URI, { 
-  useNewUrlParser: true, 
-  useUnifiedTopology: true 
-}).then(() => console.log("Conectado ao MongoDB"))
-  .catch(err => console.error("Erro ao conectar ao MongoDB:", err));
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("Conectado ao MongoDB"))
+  .catch((err) => console.error("Erro ao conectar ao MongoDB:", err));
 
 const generateReportWithDeepSeek = async (prompt) => {
   try {
@@ -198,6 +197,18 @@ app.post("/register", async (req, res) => {
   }
 });
 
+app.get("/test-db", async (req, res) => {
+  try {
+    await connectDB();
+    const users = await User.find();
+    res.json({ message: "Banco conectado!", users });
+  } catch (error) {
+    console.error("Erro ao conectar ao banco:", error);
+    res.status(500).json({ message: "Erro ao conectar ao banco", error });
+  }
+});
+
+
 // Rota para login e geração de token JWT
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
@@ -299,5 +310,4 @@ app.put("/profile/edit", authenticateToken, async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+module.exports = app;
