@@ -168,7 +168,7 @@ app.post("/logout", (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: "None",
-    domain: "meu-relatorio-backend.vercel.app", // Ajuste conforme necessário
+    domain: "https://meu-relatorio-backend.vercel.app", // Ajuste conforme necessário
   });
 
   res.status(200).json({ message: "Logout realizado com sucesso!" });
