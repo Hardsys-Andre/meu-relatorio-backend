@@ -245,9 +245,10 @@ app.post("/login", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      maxAge: 5 * 60 * 1000, // 5 minutos ou :3600 * 1000, 1 hora
-       
+      sameSite: "None", // Para permitir cookies entre domínios diferentes
+      domain: "meu-relatorio-backend.vercel.app", // Especifique o domínio do backend
+      path: "/", // Garante que o cookie esteja disponível em toda a API
+      maxAge: 5 * 60 * 1000, // 5 minutos
     });
 
     // Responder com sucesso, sem enviar o token diretamente
