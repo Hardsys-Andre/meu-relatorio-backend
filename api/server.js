@@ -124,6 +124,8 @@ app.get("/csvUploader", authenticateToken, (req, res) => {
 
 // Rota para verificar token
 app.post("/verify-token", async (req, res) => {
+  console.log("Cookies recebidos:", req.cookies);
+  console.log("Header Authorization:", req.headers.authorization);
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
