@@ -1,10 +1,5 @@
 {
     "version": 2,
-    "functions": {
-        "api/**": {
-            "runtime": "nodejs20.x"
-        }
-    },
     "builds": [
       {
         "src": "server.js",
@@ -18,4 +13,3 @@
       }
     ]
   }
-  
