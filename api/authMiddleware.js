@@ -5,7 +5,7 @@ const connectDB = require("../db.js");
 const authMiddleware = async (req, res, next) => {
   await connectDB(); // Conectar ao MongoDB antes de buscar o usuário
 
-  const token = req.headers["authorization"];
+  const token = req.headers.authorization || req.headers.Authorization;
   if (!token) {
     return res.status(403).json({ message: "Token não fornecido" });
   }
