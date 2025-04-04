@@ -249,7 +249,7 @@ app.post("/login", async (req, res) => {
       sameSite: "None", // Para permitir cookies entre domínios diferentes
       domain: "meu-relatorio-backend.vercel.app", // Especifique o domínio do backend
       path: "/", // Garante que o cookie esteja disponível em toda a API
-      maxAge: 5 * 60 * 1000, // 5 minutos
+      maxAge: 60 * 60 * 1000, // 5 * 60 * 1000 - 5 minutos
     });
 
     // Responder com sucesso, sem enviar o token diretamente
