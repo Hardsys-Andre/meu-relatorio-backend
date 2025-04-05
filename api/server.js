@@ -36,6 +36,7 @@ const generateReportWithDeepSeek = async (prompt) => {
       Aqui está o prompt do usuário:
       ${prompt}
     `;
+    console.log("API KEY no backend:", process.env.OPENROUTER_API_KEY ? "EXISTE" : "NÃO EXISTE");
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
