@@ -59,6 +59,7 @@ const generateReportWithDeepSeek = async (prompt) => {
     }
 
     const data = await response.json();
+    console.log("🔍 Resposta da API OpenRouter:", JSON.stringify(data, null, 2));
     if (data.choices && data.choices.length > 0) {
       const generatedText = data.choices[0].message.content;
       return generatedText;
