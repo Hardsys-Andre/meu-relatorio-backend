@@ -50,7 +50,7 @@ const generateReportWithDeepSeek = async (prompt) => {
         model: 'meta-llama/llama-3.2-11b-vision-instruct:free',  // Modelo DeepSeek V3 0324
         messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
         temperature: 0.7,
-        max_tokens: 200
+        max_tokens: 2500
       })
     });
 
