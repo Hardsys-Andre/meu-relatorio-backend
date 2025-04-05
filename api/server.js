@@ -47,7 +47,7 @@ const generateReportWithDeepSeek = async (prompt) => {
         'X-Title': process.env.SITE_NAME || ''
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-11b-vision-instruct:free',  // Modelo DeepSeek V3 0324
+        model: 'meta-llama/llama-3.2-11b-vision-instruct:free',  // proxima: mistralai/mistral-7b-instruct:free
         messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
         temperature: 0.7,
         max_tokens: 2500
