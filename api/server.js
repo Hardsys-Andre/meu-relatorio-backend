@@ -49,7 +49,7 @@ const generateReportWithDeepSeek = async (prompt) => {
         model: 'nvidia/llama-3.1-nemotron-70b-instruct:free',  // Modelo DeepSeek V3 0324
         messages: [{ role: 'user', content: formattedPrompt }], // Envia o prompt formatado
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 200
       })
     });
 
