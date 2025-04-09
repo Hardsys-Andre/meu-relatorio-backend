@@ -18,7 +18,7 @@ app.use(cookieParser());
   })
 );*/
 
-const allowedOrigins = ['https://meu-relatorio-app.vercel.app'];
+const allowedOrigins = ['https://meu-relatorio-app.vercel.app','http://localhost:3000',];
 
 app.use(cors({
   origin: function (origin, callback) {
